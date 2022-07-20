@@ -13,8 +13,8 @@ from PIL import Image
 import sys
 sys.path.append('../')
 
-from pipeline_input import pipeline_data_visualizer, pipeline_dataset_interpreter, pipeline_ensembler, pipeline_model, pipeline_input, pipeline_streamlit_visualizer
-from constants import *
+from ML_Ops_Pipeline.pipeline_input import pipeline_data_visualizer, pipeline_dataset_interpreter, pipeline_ensembler, pipeline_model, pipeline_input, pipeline_streamlit_visualizer
+from ML_Ops_Pipeline.constants import *
 
 # Some basic setup:
 # Setup detectron2 logger
