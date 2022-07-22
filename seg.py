@@ -467,7 +467,9 @@ class seg_evaluator:
 			'f1_score': f1_score,
 			'Dice_coeff_list': Dice_coeff_avg,
 			'iou_avg': iou_avg,
-			'confusion': yolo_metrics
+			'tp': yolo_metrics['tp'],
+			'fp': yolo_metrics['fp'],
+			'fn': yolo_metrics['fn']
 		}
 		return results, preds
 
