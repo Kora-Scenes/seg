@@ -456,11 +456,30 @@ class seg_evaluator:
 			# cv2.imshow('mask', mask_vis)
 			# cv2.waitKey(1)
 
-		prec = np.float64(yolo_metrics['tp']) / float(yolo_metrics['tp'] + yolo_metrics['fp'])
-		recall = np.float64(yolo_metrics['tp']) / float(yolo_metrics['tp'] + yolo_metrics['fn'])
-		f1_score = np.float64(2*prec*recall)/(prec+recall)
-		iou_avg = np.float64(sum(iou_list)) / len(iou_list)
-		Dice_coeff_avg = sum(Dice_coeff_list) / len(Dice_coeff_list)
+		# prec = np.float64(yolo_metrics['tp']) / float(yolo_metrics['tp'] + yolo_metrics['fp'])
+		# recall = np.float64(yolo_metrics['tp']) / float(yolo_metrics['tp'] + yolo_metrics['fn'])
+		# f1_score = np.float64(2*prec*recall)/(prec+recall)
+		# iou_avg = np.float64(sum(iou_list)) / len(iou_list)
+		if yolo_metrics['tp'] + yolo_metrics['fp'] == 0:
+			prec = 0.0
+		else:
+			prec = float(yolo_metrics['tp']) / float(yolo_metrics['tp'] + yolo_metrics['fp'])
+		if yolo_metrics['tp'] + yolo_metrics['fn'] == 0:
+			recall = 0.0
+		else:
+			recall = float(yolo_metrics['tp']) / float(yolo_metrics['tp'] + yolo_metrics['fn'])
+		if prec + recall == 0:
+			f1_score = 0.0
+		else:
+			f1_score = float(2*prec*recall)/(prec+recall)
+		if len(iou_list) == 0:
+			iou_avg = 0.0
+		else:
+			iou_avg = float(sum(iou_list)) / len(iou_list)
+		if len(Dice_coeff_list)==0:
+			Dice_coeff_avg = 0.0
+		else:
+			Dice_coeff_avg = sum(Dice_coeff_list) / len(Dice_coeff_list)
 		results = {
 			'prec': prec,
 			'recall': recall,
