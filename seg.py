@@ -48,6 +48,7 @@ class seg_kitti(pipeline_dataset_interpreter):
 
 		dataset = {}
 		# Mapping: https://github.com/mcordts/cityscapesScripts/blob/master/cityscapesscripts/helpers/labels.py
+		# TODO: Generalize mapping
 		color_map = {
 			'vehicle': [
 				(142, 0, 0),	# Car
