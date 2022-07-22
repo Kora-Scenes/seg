@@ -490,6 +490,7 @@ class seg_evaluator:
 			'fp': yolo_metrics['fp'],
 			'fn': yolo_metrics['fn']
 		}
+		print(results)
 		return results, preds
 
 class detectron_base_model(seg_evaluator, pipeline_model, seg_cfg):
