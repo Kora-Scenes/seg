@@ -405,7 +405,6 @@ class seg_evaluator:
 
 	def evaluate(self, x, y):
 		preds = self.predict(x)
-		
 		Dice_coeff_list = []
 		iou_list = []
 		iou_thresh = 0.5
@@ -665,14 +664,26 @@ class seg_pipeline_ensembler_1(seg_evaluator, pipeline_ensembler):
 	def predict(self, x: dict) -> np.array:
 		model_names = list(x.keys())
 		predict_results = {
-			'result': [], 'another_result': []
+			'image_2': [],
+			'boxes': [],
+			'scores': [],
+			'classes': [],
+			'keypoints': [],
+			'masks': [],
+			'model_output_classes': []
 		}
 		for i in tqdm(x):
 			for mod_name in model_names:
 				preds = x[mod_name]
 			# TODO produce ensebled results based on all the model's predictions
-			predict_results["result"] += ["Some Ensembled Result"]
-			predict_results["another_result"] += ["Another Ensembled Result"]
+			
+			predict_results['image_2'] += [x[model_names[0]]['image_2'] ]
+			predict_results['boxes'] += [x[model_names[0]]['boxes'], ]
+			predict_results['scores'] += [x[model_names[0]]['scores'], ]
+			predict_results['classes'] += [x[model_names[0]]['classes'], ]
+			predict_results['keypoints'] += [x[model_names[0]]['keypoints'], ]
+			predict_results['masks'] += [x[model_names[0]]['masks'], ]
+			predict_results['model_output_classes'] += [x[model_names[0]]['model_output_classes'],]
 				
 		predict_results = pd.DataFrame(predict_results)
 		return predict_results
