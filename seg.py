@@ -419,6 +419,7 @@ class seg_evaluator:
 		dat_test = x.join(y)
 		print("Evaluate")
 		for index, row in tqdm(dat_test.iterrows(), total=dat_test.shape[0]):
+			self.set_status(str(int(index*100/dat_test.shape[0])) + " %")
 			img = cv2.imread(row['image_2'])
 			semantic_rgb = cv2.imread(row['semantic_rgb'])
 			semantic_rgb = cv2.resize(semantic_rgb, dsize=(img.shape[1], img.shape[0]), interpolation=cv2.INTER_CUBIC)
@@ -475,7 +476,9 @@ class seg_evaluator:
 			'f1_score': f1_score,
 			'Dice_coeff_list': Dice_coeff_avg,
 			'iou_avg': iou_avg,
-			'confusion': yolo_metrics
+			'tp': yolo_metrics['tp'],
+			'fp': yolo_metrics['fp'],
+			'fn': yolo_metrics['fn']
 		}
 		return results, preds
 
@@ -508,6 +511,7 @@ class detectron_base_model(seg_evaluator, pipeline_model, seg_cfg):
 		}
 		for index, row in tqdm(x.iterrows(), total=x.shape[0]):
 		# 	# TODO produce model predictions
+			self.set_status(str(int(index*100/x.shape[0])) + " %")
 			# img = cv2.imread(row['image_2'])
 			img = read_image(row['image_2'])
 			
@@ -573,6 +577,7 @@ class pointrend(seg_evaluator, pipeline_model, seg_cfg):
 		self.cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.5  # set threshold for this model
 		# Use a model from PointRend model zoo: https://github.com/facebookresearch/detectron2/tree/master/projects/PointRend#pretrained-models
 		self.cfg.MODEL.WEIGHTS = "detectron2://PointRend/InstanceSegmentation/pointrend_rcnn_R_50_FPN_3x_coco/164955410/model_final_edd263.pkl"
+		# self.cfg.MODEL.WEIGHTS = os.path.join(os.path.expanduser('~'), "detectron2://PointRend/InstanceSegmentation/pointrend_rcnn_R_50_FPN_3x_coco/164955410/model_final_edd263.pkl")
 		self.predictor = DefaultPredictor(self.cfg)
 		# outputs = predictor(im)
 		
