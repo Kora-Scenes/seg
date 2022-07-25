@@ -489,8 +489,6 @@ class detectron_base_model(seg_evaluator, pipeline_model, seg_cfg):
 		self.predictor = DefaultPredictor(self.cfg)
 		
 	def train(self, x, y) -> np.array:
-		#preds = self.predict(x)
-
 		# TODO: Train the model		
 		results, preds = self.evaluate(x,y)
 
@@ -510,7 +508,7 @@ class detectron_base_model(seg_evaluator, pipeline_model, seg_cfg):
 			'model_output_classes': []
 		}
 		for index, row in tqdm(x.iterrows(), total=x.shape[0]):
-		# 	# TODO produce model predictions
+		 	# TODO produce model predictions
 			self.set_status(str(int(index*100/x.shape[0])) + " %")
 			# img = cv2.imread(row['image_2'])
 			img = read_image(row['image_2'])
@@ -559,14 +557,6 @@ class pointrend(seg_evaluator, pipeline_model, seg_cfg):
 	}
 
 	def load(self):
-		# cfg = get_cfg()
-		# cfg.merge_from_file(model_zoo.get_config_file("COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml"))
-		# cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.5  # set threshold for this model
-		# cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url("COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml")
-		# mask_rcnn_predictor = DefaultPredictor(cfg)
-		# # mask_rcnn_outputs = mask_rcnn_predictor(im)
-
-
 		self.cfg = get_cfg()
 		# Add PointRend-specific config
 		point_rend.add_pointrend_config(self.cfg)
