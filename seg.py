@@ -42,6 +42,8 @@ coco_metadata = MetadataCatalog.get("coco_2017_val")
 
 # import PointRend project
 from detectron2.projects import point_rend
+
+# Make sure the following repo is cloned:
 # git clone --branch v0.6 https://github.com/facebookresearch/detectron2.git detectron2_repo
 # pip install -e detectron2_repo  ''' If have to compile from source '''
 
@@ -403,9 +405,6 @@ class seg_evaluator:
 
 	def evaluate(self, x, y):
 		preds = self.predict(x)
-		# TODO: write a common evaluation script that is common to all models
-		# Note: Optionally, you can give model specific implementations for the evaluation logic
-		#		by overloading the evaluate(self, x, y) method in the model class
 		
 		Dice_coeff_list = []
 		iou_list = []
