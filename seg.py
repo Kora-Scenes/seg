@@ -419,7 +419,7 @@ class seg_evaluator:
 		dat_test = x.join(y)
 		print("Evaluate")
 		for index, row in tqdm(dat_test.iterrows(), total=dat_test.shape[0]):
-			self.set_status(str(int(index*100/dat_test.shape[0])) + " %")
+			# self.set_status(str(int(index*100/dat_test.shape[0])) + " %")
 			img = cv2.imread(row['image_2'])
 			semantic_rgb = cv2.imread(row['semantic_rgb'])
 			semantic_rgb = cv2.resize(semantic_rgb, dsize=(img.shape[1], img.shape[0]), interpolation=cv2.INTER_CUBIC)
