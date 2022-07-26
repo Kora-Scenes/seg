@@ -403,8 +403,11 @@ class video_vis(seg_data_visualizer):
 
 class seg_evaluator:
 
-	def evaluate(self, x, y):
-		preds = self.predict(x)
+	def evaluate(self, x, y, model_predictions=None):
+		if type(model_predictions)!=type(None):
+			preds = self.predict(x, model_predictions=model_predictions)
+		else:
+			preds = self.predict(x)
 		Dice_coeff_list = []
 		iou_list = []
 		iou_thresh = 0.5
@@ -573,7 +576,7 @@ class pointrend(seg_evaluator, pipeline_model, seg_cfg):
 		#preds = self.predict(x)
 
 		# TODO: Train the model		
-		results, preds = self.evaluate(x,y)
+		results, preds = self.evaluate(x, y)
 
 		return results, preds
 
@@ -661,8 +664,8 @@ class pointrend(seg_evaluator, pipeline_model, seg_cfg):
 
 class seg_pipeline_ensembler_1(seg_evaluator, pipeline_ensembler):
 
-	def predict(self, x: dict) -> np.array:
-		model_names = list(x.keys())
+	def predict(self, x, model_predictions: dict) -> np.array:
+		model_names = list(model_predictions.keys())
 		predict_results = {
 			'image_2': [],
 			'boxes': [],
@@ -672,27 +675,35 @@ class seg_pipeline_ensembler_1(seg_evaluator, pipeline_ensembler):
 			'masks': [],
 			'model_output_classes': []
 		}
-		for i in tqdm(x):
+		print(x.shape)
+		print(model_predictions[model_names[0]].shape)
+		print(model_predictions[model_names[1]].shape)
+		i=0
+		for index, row in tqdm(x.iterrows(), total=x.shape[0]):
 			for mod_name in model_names:
-				preds = x[mod_name]
+				preds = model_predictions[mod_name]
+				mod_preds = preds[preds["image_2"]==row["image_2"]]
 			# TODO produce ensebled results based on all the model's predictions
-			
-			predict_results['image_2'] += [x[model_names[0]]['image_2'] ]
-			predict_results['boxes'] += [x[model_names[0]]['boxes'], ]
-			predict_results['scores'] += [x[model_names[0]]['scores'], ]
-			predict_results['classes'] += [x[model_names[0]]['classes'], ]
-			predict_results['keypoints'] += [x[model_names[0]]['keypoints'], ]
-			predict_results['masks'] += [x[model_names[0]]['masks'], ]
-			predict_results['model_output_classes'] += [x[model_names[0]]['model_output_classes'],]
+			mod = model_predictions[model_names[1]].iloc[i]
+
+			predict_results['image_2'] += [row['image_2'], ]
+			predict_results['boxes'] += [mod['boxes'], ]
+			predict_results['scores'] += [mod['scores']]
+			predict_results['classes'] += [mod['classes']]
+			predict_results['keypoints'] += [mod['keypoints']]
+			predict_results['masks'] += [mod['masks']]
+			predict_results['model_output_classes'] += [mod['model_output_classes']]
+
+			i+=1
 				
 		predict_results = pd.DataFrame(predict_results)
 		return predict_results
 
 
-	def train(self, x, y):
+	def train(self, x, y, model_predictions):
 		#preds = self.predict(x)
 		# TODO: train ensemble model
-		results, preds =self.evaluate(x,y)
+		results, preds = self.evaluate(x, y, model_predictions=model_predictions)
 
 		return results, preds
 
@@ -846,7 +857,7 @@ seg_input = pipeline_input("seg",
 		'mask_rcnn': mask_rcnn,
 		'pointrend': pointrend
 	}, {
-		#'seg_pipeline_ensembler_1': seg_pipeline_ensembler_1
+		'seg_pipeline_ensembler_1': seg_pipeline_ensembler_1
 	}, {
 		'iou_vis': iou_vis,
 		#'video_vis': video_vis
