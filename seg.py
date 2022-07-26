@@ -295,9 +295,10 @@ class seg_data_visualizer(pipeline_data_visualizer):
 		Returns:
 			output (np.array): image object with visualizations.
 		"""
-		N = len(boxes)
+		N = len(masks)
 		assert N==len(labels)
 		assert N==len(masks)
+		# assert N==len(boxes)
 		output = img
 		alpha = 0.6
 		beta = (1.0 - alpha)
@@ -664,6 +665,10 @@ class pointrend(seg_evaluator, pipeline_model, seg_cfg):
 
 class seg_pipeline_ensembler_1(seg_evaluator, pipeline_ensembler):
 
+	model_output_classes = {
+		'vehicle':  ('vehicle', )
+	}
+
 	def predict(self, x, model_predictions: dict) -> np.array:
 		model_names = list(model_predictions.keys())
 		predict_results = {
@@ -680,19 +685,47 @@ class seg_pipeline_ensembler_1(seg_evaluator, pipeline_ensembler):
 		print(model_predictions[model_names[1]].shape)
 		i=0
 		for index, row in tqdm(x.iterrows(), total=x.shape[0]):
+			img = cv2.imread(row['image_2'])
+			class_preds = {}
 			for mod_name in model_names:
-				preds = model_predictions[mod_name]
-				mod_preds = preds[preds["image_2"]==row["image_2"]]
+				mod_preds = model_predictions[mod_name]
+				mod_preds = mod_preds[mod_preds["image_2"]==row["image_2"]].iloc[0]
+
+				for pred_ind in range(len(mod_preds['masks'])):
+					mask = mod_preds['masks'][pred_ind]
+					pred_class = mod_preds['classes'][pred_ind]
+					if pred_class in mod_preds['model_output_classes']:
+						pred_class_name = mod_preds['model_output_classes'][pred_class]
+
+						class_preds.setdefault(pred_class_name, None)
+						if type(class_preds[pred_class_name]) == type(None):
+							class_preds[pred_class_name] = np.full(img.shape[:2], False, dtype=bool)
+
+						class_preds[pred_class_name] += mask
+			
+			classes = []
+			masks = []
+			boxes = []
+			scores = []
+			keypoints = []
+			for pred_class_name in class_preds:
+				classes.append(pred_class_name)
+				masks.append(class_preds[pred_class_name])
+				boxes.append([])
+				scores.append(0)
+				keypoints.append(0)
+				
+
 			# TODO produce ensebled results based on all the model's predictions
-			mod = model_predictions[model_names[1]].iloc[i]
+			mod = model_predictions[model_names[0]].iloc[i]
 
 			predict_results['image_2'] += [row['image_2'], ]
-			predict_results['boxes'] += [mod['boxes'], ]
-			predict_results['scores'] += [mod['scores']]
-			predict_results['classes'] += [mod['classes']]
-			predict_results['keypoints'] += [mod['keypoints']]
-			predict_results['masks'] += [mod['masks']]
-			predict_results['model_output_classes'] += [mod['model_output_classes']]
+			predict_results['boxes'] += [boxes ]
+			predict_results['scores'] += [scores]
+			predict_results['classes'] += [classes]
+			predict_results['keypoints'] += [keypoints]
+			predict_results['masks'] += [masks]
+			predict_results['model_output_classes'] += [self.model_output_classes]
 
 			i+=1
 				
