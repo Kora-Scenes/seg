@@ -509,9 +509,10 @@ class detectron_base_model(seg_evaluator, pipeline_model, seg_cfg):
 			'masks': [],
 			'model_output_classes': []
 		}
+		i=0
 		for index, row in tqdm(x.iterrows(), total=x.shape[0]):
 		 	# TODO produce model predictions
-			self.set_status(str(int(index*100/x.shape[0])) + " %")
+			self.set_status(str(int(i*100/x.shape[0])) + " %")
 			# img = cv2.imread(row['image_2'])
 			img = read_image(row['image_2'])
 			
@@ -537,6 +538,8 @@ class detectron_base_model(seg_evaluator, pipeline_model, seg_cfg):
 			predict_results['keypoints'] += [keypoints, ]
 			predict_results['masks'] += [masks, ]
 			predict_results['model_output_classes'] += [self.model_output_classes, ]
+			
+			i+=1
 
 
 		predict_results = pd.DataFrame(predict_results)
@@ -688,20 +691,19 @@ class seg_pipeline_ensembler_1(seg_evaluator, pipeline_ensembler):
 			img = cv2.imread(row['image_2'])
 			class_preds = {}
 			for mod_name in model_names:
-				mod_preds = model_predictions[mod_name]
-				mod_preds = mod_preds[mod_preds["image_2"]==row["image_2"]].iloc[0]
+				mod_preds_all = model_predictions[mod_name]
+				mod_preds_all = mod_preds_all[mod_preds_all["image_2"]==row["image_2"]]
+				for index2, mod_preds in mod_preds_all.iterrows():
+					for pred_ind in range(len(mod_preds['masks'])):
+						mask = mod_preds['masks'][pred_ind]
+						pred_class = mod_preds['classes'][pred_ind]
+						for my_class in self.model_output_classes:
+							if my_class in mod_preds['model_output_classes']:
+								if pred_class in mod_preds['model_output_classes'][my_class]:
+									pred_class_name = my_class
 
-				for pred_ind in range(len(mod_preds['masks'])):
-					mask = mod_preds['masks'][pred_ind]
-					pred_class = mod_preds['classes'][pred_ind]
-					if pred_class in mod_preds['model_output_classes']:
-						pred_class_name = mod_preds['model_output_classes'][pred_class]
-
-						class_preds.setdefault(pred_class_name, None)
-						if type(class_preds[pred_class_name]) == type(None):
-							class_preds[pred_class_name] = np.full(img.shape[:2], False, dtype=bool)
-
-						class_preds[pred_class_name] += mask
+									class_preds.setdefault(pred_class_name, np.full(img.shape[:2], False, dtype=bool))
+									class_preds[pred_class_name] += mask
 			
 			classes = []
 			masks = []
@@ -715,9 +717,6 @@ class seg_pipeline_ensembler_1(seg_evaluator, pipeline_ensembler):
 				scores.append(0)
 				keypoints.append(0)
 				
-
-			# TODO produce ensebled results based on all the model's predictions
-			mod = model_predictions[model_names[0]].iloc[i]
 
 			predict_results['image_2'] += [row['image_2'], ]
 			predict_results['boxes'] += [boxes ]
