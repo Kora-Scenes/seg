@@ -1,4 +1,3 @@
-
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
@@ -13,8 +12,8 @@ from PIL import Image
 import sys
 sys.path.append('../')
 
-from pipeline_input import pipeline_data_visualizer, pipeline_dataset_interpreter, pipeline_ensembler, pipeline_model, pipeline_input, pipeline_streamlit_visualizer
-from constants import *
+from ML_Ops_Pipeline.pipeline_input import pipeline_data_visualizer, pipeline_dataset_interpreter, pipeline_ensembler, pipeline_model, pipeline_input, pipeline_streamlit_visualizer
+from ML_Ops_Pipeline.constants import *
 
 # Some basic setup:
 # Setup detectron2 logger
@@ -43,6 +42,8 @@ coco_metadata = MetadataCatalog.get("coco_2017_val")
 
 # import PointRend project
 from detectron2.projects import point_rend
+
+# Make sure the following repo is cloned:
 # git clone --branch v0.6 https://github.com/facebookresearch/detectron2.git detectron2_repo
 # pip install -e detectron2_repo  ''' If have to compile from source '''
 
@@ -276,7 +277,6 @@ class seg_data_visualizer(pipeline_data_visualizer):
 				for the N objects in a single image,
 			labels (list[str]): the text to be displayed for each instance.
 			masks (masks-like object): Supported types are:
-
 				* :class:`detectron2.structures.PolygonMasks`,
 				  :class:`detectron2.structures.BitMasks`.
 				* list[list[ndarray]]: contains the segmentation masks for all objects in one image.
@@ -295,9 +295,10 @@ class seg_data_visualizer(pipeline_data_visualizer):
 		Returns:
 			output (np.array): image object with visualizations.
 		"""
-		N = len(boxes)
+		N = len(masks)
 		assert N==len(labels)
 		assert N==len(masks)
+		# assert N==len(boxes)
 		output = img
 		alpha = 0.6
 		beta = (1.0 - alpha)
@@ -403,12 +404,11 @@ class video_vis(seg_data_visualizer):
 
 class seg_evaluator:
 
-	def evaluate(self, x, y):
-		preds = self.predict(x)
-		# TODO: write a predict evaluation script that is common to all models
-		# Note: Optionally, you can give model specific implementations for the evaluation logic
-		#		by overloading the evaluate(self, x, y) method in the model class
-		
+	def evaluate(self, x, y, model_predictions=None):
+		if type(model_predictions)!=type(None):
+			preds = self.predict(x, model_predictions=model_predictions)
+		else:
+			preds = self.predict(x)
 		Dice_coeff_list = []
 		iou_list = []
 		iou_thresh = 0.5
@@ -417,12 +417,11 @@ class seg_evaluator:
 			'fp': 0, 	# 0<iou<thresh
 			'fn':0		# iou==0	
 		}
-		# if self.__class__.__name__ == 'seg_pipeline_ensembler_1':
-		# 	x = x['mask_rcnn']
+
 		dat_test = x.join(y)
-		print(dat_test)
 		print("Evaluate")
 		for index, row in tqdm(dat_test.iterrows(), total=dat_test.shape[0]):
+			# self.set_status(str(int(index*100/dat_test.shape[0])) + " %")
 			img = cv2.imread(row['image_2'])
 			semantic_rgb = cv2.imread(row['semantic_rgb'])
 			semantic_rgb = cv2.resize(semantic_rgb, dsize=(img.shape[1], img.shape[0]), interpolation=cv2.INTER_CUBIC)
@@ -479,7 +478,9 @@ class seg_evaluator:
 			'f1_score': f1_score,
 			'Dice_coeff_list': Dice_coeff_avg,
 			'iou_avg': iou_avg,
-			'confusion': yolo_metrics
+			'tp': yolo_metrics['tp'],
+			'fp': yolo_metrics['fp'],
+			'fn': yolo_metrics['fn']
 		}
 		return results, preds
 
@@ -490,8 +491,6 @@ class detectron_base_model(seg_evaluator, pipeline_model, seg_cfg):
 		self.predictor = DefaultPredictor(self.cfg)
 		
 	def train(self, x, y) -> np.array:
-		#preds = self.predict(x)
-
 		# TODO: Train the model		
 		results, preds = self.evaluate(x,y)
 
@@ -511,7 +510,8 @@ class detectron_base_model(seg_evaluator, pipeline_model, seg_cfg):
 			'model_output_classes': []
 		}
 		for index, row in tqdm(x.iterrows(), total=x.shape[0]):
-		# 	# TODO produce model predictions
+		 	# TODO produce model predictions
+			self.set_status(str(int(index*100/x.shape[0])) + " %")
 			# img = cv2.imread(row['image_2'])
 			img = read_image(row['image_2'])
 			
@@ -559,22 +559,17 @@ class pointrend(seg_evaluator, pipeline_model, seg_cfg):
 	}
 
 	def load(self):
-		# cfg = get_cfg()
-		# cfg.merge_from_file(model_zoo.get_config_file("COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml"))
-		# cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.5  # set threshold for this model
-		# cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url("COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml")
-		# mask_rcnn_predictor = DefaultPredictor(cfg)
-		# # mask_rcnn_outputs = mask_rcnn_predictor(im)
-
-
 		self.cfg = get_cfg()
 		# Add PointRend-specific config
 		point_rend.add_pointrend_config(self.cfg)
 		# Load a config from file
-		self.cfg.merge_from_file("detectron2_repo/projects/PointRend/configs/InstanceSegmentation/pointrend_rcnn_R_50_FPN_3x_coco.yaml")
+		#self.cfg.merge_from_file("detectron2_repo/projects/PointRend/configs/InstanceSegmentation/pointrend_rcnn_R_50_FPN_3x_coco.yaml")
+		self.cfg.merge_from_file(os.path.join(os.path.expanduser('~'), "detectron2_repo/projects/PointRend/configs/InstanceSegmentation/pointrend_rcnn_R_50_FPN_3x_coco.yaml"))
+		
 		self.cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.5  # set threshold for this model
 		# Use a model from PointRend model zoo: https://github.com/facebookresearch/detectron2/tree/master/projects/PointRend#pretrained-models
 		self.cfg.MODEL.WEIGHTS = "detectron2://PointRend/InstanceSegmentation/pointrend_rcnn_R_50_FPN_3x_coco/164955410/model_final_edd263.pkl"
+		# self.cfg.MODEL.WEIGHTS = os.path.join(os.path.expanduser('~'), "detectron2://PointRend/InstanceSegmentation/pointrend_rcnn_R_50_FPN_3x_coco/164955410/model_final_edd263.pkl")
 		self.predictor = DefaultPredictor(self.cfg)
 		# outputs = predictor(im)
 		
@@ -582,7 +577,7 @@ class pointrend(seg_evaluator, pipeline_model, seg_cfg):
 		#preds = self.predict(x)
 
 		# TODO: Train the model		
-		results, preds = self.evaluate(x,y)
+		results, preds = self.evaluate(x, y)
 
 		return results, preds
 
@@ -671,11 +666,11 @@ class pointrend(seg_evaluator, pipeline_model, seg_cfg):
 class seg_pipeline_ensembler_1(seg_evaluator, pipeline_ensembler):
 
 	model_output_classes = {
-		'vehicle':  (2, 3, 5, 7, )
+		'vehicle':  ('vehicle', )
 	}
 
-	def predict(self, x: dict) -> np.array:
-		model_names = list(x.keys())
+	def predict(self, x, model_predictions: dict) -> np.array:
+		model_names = list(model_predictions.keys())
 		predict_results = {
 			'image_2': [],
 			'boxes': [],
@@ -685,56 +680,63 @@ class seg_pipeline_ensembler_1(seg_evaluator, pipeline_ensembler):
 			'masks': [],
 			'model_output_classes': []
 		}
-		# for i in tqdm(x):
-		masks = []
-		for mod_name in model_names:
-			preds = x[mod_name]
-			# print(mod_name)
-			# print(preds)
-			masks.append(preds['masks'].to_numpy())
-		# print(type(masks[0]))
-		# print('MASKS###',len(masks))
-		for index, row in preds.iterrows():
-			# for j in range(len(masks[0])):
-			pred_mask = np.full(masks[0][index][0].shape,False, dtype =bool)
-			for k in range(len(masks[0][index])):
-				# if masks[0][index][k].shape == (375, 1242):
-				pred_mask = np.logical_or(pred_mask,masks[0][index][k])
-			masks_rcnn = pred_mask
-			pred_mask = np.full(masks[1][index][0].shape,False, dtype =bool)
-			for k in range(len(masks[1][index])):
-				# if masks[1][index][k].shape == (375, 1242):
-				pred_mask = np.logical_or(pred_mask,masks[1][index][k])
-			ptrend_mask = pred_mask
-			pred_mask = np.full(masks[0][index][0].shape,False, dtype =bool)
-			pred_mask = np.logical_or(pred_mask,masks_rcnn)
-			pred_mask = np.logical_and(pred_mask,ptrend_mask)
-			# cv2.imshow('mask',pred_mask.astype(np.uint8)*255)
-			# cv2.waitKey(0)
-			# print(pred_mask.shape)
-			predict_results['image_2'] += [row['image_2'], ]
-			predict_results['boxes'] += [row['boxes'], ]
-			predict_results['scores'] += [0, ]
-			predict_results['classes'] += [0, ]
-			predict_results['keypoints'] += [0, ]
-			predict_results['masks'] += [pred_mask, ]
-			predict_results['model_output_classes'] += [self.model_output_classes, ]
-				
-			# # TODO produce ensebled results based on all the model's predictions
-			# 	predict_results["IOU"] += [res[1][0]]
-			# 	predict_results["Dice_Coeff"] += [res[1][1]]
+		print(x.shape)
+		print(model_predictions[model_names[0]].shape)
+		print(model_predictions[model_names[1]].shape)
+		i=0
+		for index, row in tqdm(x.iterrows(), total=x.shape[0]):
+			img = cv2.imread(row['image_2'])
+			class_preds = {}
+			for mod_name in model_names:
+				mod_preds = model_predictions[mod_name]
+				mod_preds = mod_preds[mod_preds["image_2"]==row["image_2"]].iloc[0]
+
+				for pred_ind in range(len(mod_preds['masks'])):
+					mask = mod_preds['masks'][pred_ind]
+					pred_class = mod_preds['classes'][pred_ind]
+					if pred_class in mod_preds['model_output_classes']:
+						pred_class_name = mod_preds['model_output_classes'][pred_class]
+
+						class_preds.setdefault(pred_class_name, None)
+						if type(class_preds[pred_class_name]) == type(None):
+							class_preds[pred_class_name] = np.full(img.shape[:2], False, dtype=bool)
+
+						class_preds[pred_class_name] += mask
+			
+			classes = []
+			masks = []
+			boxes = []
+			scores = []
+			keypoints = []
+			for pred_class_name in class_preds:
+				classes.append(pred_class_name)
+				masks.append(class_preds[pred_class_name])
+				boxes.append([])
+				scores.append(0)
+				keypoints.append(0)
 				
 
+			# TODO produce ensebled results based on all the model's predictions
+			mod = model_predictions[model_names[0]].iloc[i]
+
+			predict_results['image_2'] += [row['image_2'], ]
+			predict_results['boxes'] += [boxes ]
+			predict_results['scores'] += [scores]
+			predict_results['classes'] += [classes]
+			predict_results['keypoints'] += [keypoints]
+			predict_results['masks'] += [masks]
+			predict_results['model_output_classes'] += [self.model_output_classes]
+
+			i+=1
+				
 		predict_results = pd.DataFrame(predict_results)
-		# print(predict_results)
-		# print(type(predict_results))
 		return predict_results
 
 
-	def train(self, x, y):
+	def train(self, x, y, model_predictions):
 		#preds = self.predict(x)
 		# TODO: train ensemble model
-		results, preds =self.evaluate(x,y)
+		results, preds = self.evaluate(x, y, model_predictions=model_predictions)
 
 		return results, preds
 
@@ -903,11 +905,9 @@ def read_image(file_name, format=None):
 	"""
 	Read an image into the given format.
 	Will apply rotation and flipping if the image has such exif information.
-
 	Args:
 		file_name (str): image file path
 		format (str): one of the supported image modes in PIL, or "BGR" or "YUV-BT.601".
-
 	Returns:
 		image (np.ndarray):
 			an HWC image in the given format, which is 0-255, uint8 for
@@ -926,11 +926,9 @@ _SMALL_OBJECT_AREA_THRESH = 1000
 def convert_PIL_to_numpy(image, format):
 	"""
 	Convert PIL image to numpy array of target format.
-
 	Args:
 		image (PIL.Image): a PIL image
 		format (str): the format of output image
-
 	Returns:
 		(np.ndarray): also see `read_image`
 	"""
@@ -960,19 +958,15 @@ _EXIF_ORIENT = 274  # exif 'Orientation' tag
 def _apply_exif_orientation(image):
 	"""
 	Applies the exif orientation correctly.
-
 	This code exists per the bug:
 	  https://github.com/python-pillow/Pillow/issues/3973
 	with the function `ImageOps.exif_transpose`. The Pillow source raises errors with
 	various methods, especially `tobytes`
-
 	Function based on:
 	  https://github.com/wkentaro/labelme/blob/v4.5.4/labelme/utils/image.py#L59
 	  https://github.com/python-pillow/Pillow/blob/7.1.2/src/PIL/ImageOps.py#L527
-
 	Args:
 		image (PIL.Image): a PIL image
-
 	Returns:
 		(PIL.Image): the PIL image with exif orientation applied, if applicable
 	"""
@@ -1091,7 +1085,6 @@ def colormap(rgb=False, maximum=255):
 	Args:
 		rgb (bool): whether to return RGB colors or BGR colors.
 		maximum (int): either 255 or 1
-
 	Returns:
 		ndarray: a float32 array of Nx3 colors, in range [0, 255] or [0, 1]
 	"""
@@ -1108,7 +1101,6 @@ def random_color(rgb=False, maximum=255, seed=None):
 	Args:
 		rgb (bool): whether to return RGB colors or BGR colors.
 		maximum (int): either 255 or 1
-
 	Returns:
 		ndarray: a vector of 3 numbers
 	"""
@@ -1128,7 +1120,6 @@ def random_colors(N, rgb=False, maximum=255):
 		N (int): number of unique colors needed
 		rgb (bool): whether to return RGB colors or BGR colors.
 		maximum (int): either 255 or 1
-
 	Returns:
 		ndarray: a list of random_color
 	"""
@@ -1136,4 +1127,4 @@ def random_colors(N, rgb=False, maximum=255):
 	ret = [_COLORS[i] * maximum for i in indices]
 	if not rgb:
 		ret = [x[::-1] for x in ret]
-	return ret
+	return 
