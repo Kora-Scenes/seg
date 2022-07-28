@@ -12,9 +12,6 @@ from PIL import Image
 import sys
 sys.path.append('../')
 
-from ML_Ops_Pipeline.pipeline_input import pipeline_data_visualizer, pipeline_dataset_interpreter, pipeline_ensembler, pipeline_model, pipeline_input, pipeline_streamlit_visualizer
-from ML_Ops_Pipeline.constants import *
-
 # Some basic setup:
 # Setup detectron2 logger
 import detectron2
@@ -47,7 +44,7 @@ from detectron2.projects import point_rend
 # git clone --branch v0.6 https://github.com/facebookresearch/detectron2.git detectron2_repo
 # pip install -e detectron2_repo  ''' If have to compile from source '''
 
-class seg_kitti(pipeline_dataset_interpreter):
+class seg_kitti():
 
 	def generate_data(self, dataset):
 		dataset_train, dataset_test = train_test_split(dataset, test_size=0.1, random_state=1)
@@ -99,7 +96,7 @@ class seg_kitti(pipeline_dataset_interpreter):
 			files_list = list(map(lambda x: x.split("/")[-1].split(".png")[:-1][0], image_2_files_list))
 			#print(files_list)
 			print("seg_kitti: load", mode)
-			for f in tqdm(files_list):
+			for f in files_list:
 				image_2_path = os.path.join(image_2_folder, f+".png")
 				instance_path = os.path.join(instance_folder, f+".png")
 				semantic_path = os.path.join(semantic_folder, f+".png")
@@ -131,7 +128,7 @@ class seg_kitti(pipeline_dataset_interpreter):
 			}
 		}
 
-class interp_airsim(pipeline_dataset_interpreter):
+class interp_airsim:
 	NUM_CAMS = 0
 	mode_name = {
         0: 'Scene', 
@@ -257,7 +254,7 @@ class seg_cfg:
 
 		self.cfg.freeze()
 
-class seg_data_visualizer(pipeline_data_visualizer):
+class seg_data_visualizer:
 
 	def overlay_instances(
 		self,
@@ -319,7 +316,7 @@ class seg_data_visualizer(pipeline_data_visualizer):
 
 class iou_vis(seg_data_visualizer):
 	def visualize(self, x, y, results, preds, save_dir) -> None:
-		for index, row in tqdm(preds.iterrows(), total=preds.shape[0]):
+		for index, row in preds.iterrows():
 		# 	# TODO produce model predictions
 			# img = cv2.imread(row['image_2'])
 			#print(row)
@@ -354,7 +351,7 @@ class video_vis(seg_data_visualizer):
 		print(save_dir)
 
 
-		for index, row in tqdm(preds.iterrows(), total=preds.shape[0]):
+		for index, row in preds.iterrows():
 		# 	# TODO produce model predictions
 			# img = cv2.imread(row['image_2'])
 			img = read_image(row['image_2'])
@@ -420,7 +417,7 @@ class seg_evaluator:
 
 		dat_test = x.join(y)
 		print("Evaluate")
-		for index, row in tqdm(dat_test.iterrows(), total=dat_test.shape[0]):
+		for index, row in dat_test.iterrows():
 			# self.set_status(str(int(index*100/dat_test.shape[0])) + " %")
 			img = cv2.imread(row['image_2'])
 			semantic_rgb = cv2.imread(row['semantic_rgb'])
@@ -484,7 +481,11 @@ class seg_evaluator:
 		}
 		return results, preds
 
-class detectron_base_model(seg_evaluator, pipeline_model, seg_cfg):
+class detectron_base_model(seg_evaluator, seg_cfg):
+
+	def __init__(self) -> None:
+		super().__init__()
+		self.load()
 
 	def load(self):
 		self.get_cfg()
@@ -510,9 +511,9 @@ class detectron_base_model(seg_evaluator, pipeline_model, seg_cfg):
 			'model_output_classes': []
 		}
 		i=0
-		for index, row in tqdm(x.iterrows(), total=x.shape[0]):
+		for index, row in x.iterrows():
 		 	# TODO produce model predictions
-			self.set_status(str(int(i*100/x.shape[0])) + " %")
+			# self.set_status(str(int(i*100/x.shape[0])) + " %")
 			# img = cv2.imread(row['image_2'])
 			img = read_image(row['image_2'])
 			
@@ -554,7 +555,7 @@ class mask_rcnn(detectron_base_model):
 	}
 
 
-class pointrend(seg_evaluator, pipeline_model, seg_cfg):
+class pointrend(seg_evaluator, seg_cfg):
 	# config_path = os.path.expanduser("~/detectron2/configs/quick_schedules/mask_rcnn_R_50_FPN_inference_acc_test.yaml")
 
 	model_output_classes = {
@@ -597,7 +598,7 @@ class pointrend(seg_evaluator, pipeline_model, seg_cfg):
 			'masks': [],
 			'model_output_classes': []
 		}
-		for index, row in tqdm(x.iterrows(), total=x.shape[0]):
+		for index, row in x.iterrows():
 		# 	# TODO produce model predictions
 			# img = cv2.imread(row['image_2'])
 			img = read_image(row['image_2'])
@@ -666,7 +667,7 @@ class pointrend(seg_evaluator, pipeline_model, seg_cfg):
 
 # 		self.cfg.freeze()
 
-class seg_pipeline_ensembler_1(seg_evaluator, pipeline_ensembler):
+class seg_pipeline_ensembler_1(seg_evaluator):
 
 	model_output_classes = {
 		'vehicle':  ('vehicle', )
@@ -687,7 +688,7 @@ class seg_pipeline_ensembler_1(seg_evaluator, pipeline_ensembler):
 		print(model_predictions[model_names[0]].shape)
 		print(model_predictions[model_names[1]].shape)
 		i=0
-		for index, row in tqdm(x.iterrows(), total=x.shape[0]):
+		for index, row in x.iterrows():
 			img = cv2.imread(row['image_2'])
 			class_preds = {}
 			for mod_name in model_names:
@@ -739,7 +740,7 @@ class seg_pipeline_ensembler_1(seg_evaluator, pipeline_ensembler):
 
 		return results, preds
 
-class streamlit_viz(pipeline_streamlit_visualizer):
+class streamlit_viz:
 
 	def visualize(self):
 		self.load_data()
@@ -880,24 +881,6 @@ class streamlit_viz(pipeline_streamlit_visualizer):
 		output = cv2.addWeighted(output, alpha, final_masked_color, beta, 0.0)
 		return output
 
-seg_input = pipeline_input("seg", 
-	{
-		'seg_kitti': seg_kitti,
-		#'interp_airsim':interp_airsim
-	}, {
-		#'detectron_base_model': detectron_base_model,
-		'mask_rcnn': mask_rcnn,
-		'pointrend': pointrend
-	}, {
-		'seg_pipeline_ensembler_1': seg_pipeline_ensembler_1
-	}, {
-		'iou_vis': iou_vis,
-		#'video_vis': video_vis
-	}, p_pipeline_streamlit_visualizer=streamlit_viz)
-
-# Write the pipeline object to exported_pipeline
-exported_pipeline = seg_input
-
 ############################
 
 def read_image(file_name, format=None):
@@ -912,12 +895,14 @@ def read_image(file_name, format=None):
 			an HWC image in the given format, which is 0-255, uint8 for
 			supported image modes in PIL or "BGR"; float (0-1 for Y) for YUV-BT.601.
 	"""
-	
-	image = Image.open(file_name)
-	image.load()
-	# work around this bug: https://github.com/python-pillow/Pillow/issues/3973
-	image = _apply_exif_orientation(image)
-	return convert_PIL_to_numpy(image, format)
+	if type(file_name)==str:
+		image = Image.open(file_name)
+		image.load()
+		# work around this bug: https://github.com/python-pillow/Pillow/issues/3973
+		image = _apply_exif_orientation(image)
+		return convert_PIL_to_numpy(image, format)
+	else:
+		return file_name
 
 _M_RGB2YUV = [[0.299, 0.587, 0.114], [-0.14713, -0.28886, 0.436], [0.615, -0.51499, -0.10001]]
 _SMALL_OBJECT_AREA_THRESH = 1000
