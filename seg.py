@@ -744,7 +744,7 @@ class streamlit_viz(pipeline_streamlit_visualizer):
 	def visualize(self):
 		self.load_data()
 
-		if type(self.testing_result)==type(None):
+		if not hasattr(self, 'testing_result'):
 			self.st.markdown("# No results found")
 			self.st.markdown("No results were computed for this")
 			return
