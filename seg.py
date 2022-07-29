@@ -405,7 +405,7 @@ class video_vis(seg_data_visualizer):
 class seg_evaluator:
 
 	def evaluate(self, x, y, model_predictions=None):
-		
+
 		if type(model_predictions)!=type(None):
 			preds = self.predict(x, model_predictions=model_predictions)
 		else:
@@ -745,7 +745,7 @@ class streamlit_viz(pipeline_streamlit_visualizer):
 	def visualize(self):
 		self.load_data()
 
-		if not hasattr(self, 'testing_result'):
+		if not hasattr(self, 'testing_results'):
 			self.st.markdown("# No results found")
 			self.st.markdown("No results were computed for this")
 			return
