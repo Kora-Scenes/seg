@@ -405,6 +405,7 @@ class video_vis(seg_data_visualizer):
 class seg_evaluator:
 
 	def evaluate(self, x, y, model_predictions=None):
+		
 		if type(model_predictions)!=type(None):
 			preds = self.predict(x, model_predictions=model_predictions)
 		else:
